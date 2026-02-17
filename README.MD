@@ -1,4 +1,4 @@
-# Ai-Web-Crawler
+# llm-based-web-scraper
 
 This project is a web crawler built with Python that extracts tender / procurement notices from public websites using asynchronous programming with Crawl4AI. It uses a language model (LLM) extraction strategy to produce structured tender data and exports results to CSV and JSON files.
 
@@ -27,11 +27,11 @@ This project is a web crawler built with Python that extracts tender / procureme
 
 ## Installation
 
-1. **Create and Activate a Conda Environment**
+1. **Create and Activate a Virtual Environment**
 
    ```bash
-   conda create -n deep-seek-crawler python=3.12 -y
-   conda activate deep-seek-crawler
+   python -m venv .venv
+   .venv\Scripts\Activate
    ```
 
 2. **Install Dependencies**
