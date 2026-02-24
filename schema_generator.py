@@ -3,7 +3,7 @@ import os
 import json
 from pathlib import Path
 from typing import Any
-
+from db_manager import DBManager
 from dotenv import load_dotenv
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, LLMConfig, JsonXPathExtractionStrategy
 
@@ -11,6 +11,16 @@ load_dotenv()
 
 
 class SchemaGenerator:
+    """
+    Generates, stores, and retrieves crawl4ai extraction schemas
+    for tender listing pages, backed by MongoDB via DBManager.
+    """
+
+    def __init__(self, db_manager: DBManager | None = None):
+        self._db: DBManager = db_manager or DBManager()
+        self._db.connect()
+
+# ── schema generation ─────────────────────────────────────────────────────
 
     async def generate_tender_page_schema(self, url: str) -> dict:
         """
@@ -49,32 +59,77 @@ class SchemaGenerator:
 
             return schema
 
-    def store_schema(self, tender_state: str, schema: dict):
-        """
-        Converts the schema dict to JSON and stores it as a file named by tender_state.
-        Replace the file I/O here with your DB manager call if needed.
-        """
-        schema_dir = Path("schemas")
-        schema_dir.mkdir(parents=True, exist_ok=True)
+# ── persistence ───────────────────────────────────────────────────────────
 
-        file_path = schema_dir / f"{tender_state}.json"
-        with file_path.open("w", encoding="utf-8") as f:
-            json.dump(schema, f, ensure_ascii=False, indent=2)
-
-        print(f"Schema stored for state '{tender_state}' at {file_path}")
+    def store_schema(self, tender_state: str, schema: dict) -> None:
+        """
+        Persist *schema* for *tender_state* to MongoDB.
+        Overwrites any existing schema for that state.
+        """
+        self._db.upsert_schema(tender_state, schema)
 
     def get_tender_page_schema(self, tender_state: str) -> dict | None:
         """
-        Finds and returns the schema for the given tender_state from storage.
-        Returns None if not found.
+        Retrieve the stored schema for *tender_state*.
+        Returns None if no schema has been saved yet.
         """
-        file_path = Path("schemas") / f"{tender_state}.json"
+        return self._db.get_schema(tender_state)
 
-        if not file_path.exists():
-            print(f"No schema found for state: '{tender_state}'")
-            return None
+# ── convenience: generate + store in one call ─────────────────────────────
 
-        with file_path.open("r", encoding="utf-8") as f:
-            schema = json.load(f)
+    async def ensure_schema(self, tender_state: str, url: str) -> dict:
+        """
+        Return the cached schema for *tender_state* if it exists,
+        otherwise generate it from *url*, store it, and return it.
+        """
+        schema = self.get_tender_page_schema(tender_state)
+        if schema:
+            print(f"[SchemaGenerator] Loaded existing schema for '{tender_state}'")
+            return schema
 
+        print(f"[SchemaGenerator] Generating new schema for '{tender_state}' from {url}")
+        schema = await self.generate_tender_page_schema(url)
+        self.store_schema(tender_state, schema)
         return schema
+
+    def close(self) -> None:
+        self._db.disconnect()
+
+    # context-manager support
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
+
+
+# # ── quick smoke-test ──────────────────────────────────────────────────────────
+
+# async def main():
+#     url = "https://www.tenders.gov.au/Atm/"
+#     tender_state = "aus_gov"
+
+#     with SchemaGenerator() as gen:
+#         # 1. Get or generate schema
+#         schema = await gen.ensure_schema(tender_state, url)
+#         print("Schema:", json.dumps(schema, indent=2))
+
+#         # 2. Use schema to scrape
+#         async with AsyncWebCrawler(config=BrowserConfig(headless=False)) as crawler:
+#             result = await crawler.arun(
+#                 url=url,
+#                 config=CrawlerRunConfig(
+#                     extraction_strategy=JsonXPathExtractionStrategy(schema=schema)
+#                 ),
+#             )
+
+#         tenders = json.loads(result.extracted_content or "[]")
+#         print(f"Scraped {len(tenders)} tenders")
+
+#         # 3. Persist tenders
+#         gen._db.insert_tenders(tender_state, tenders)
+
+
+# if __name__ == "__main__":
+#     asyncio.run(main())

@@ -24,7 +24,7 @@ class DBManager:
     def __init__(
         self,
         uri: str | None = None,
-        db_name: str = "tender_scraper",
+        db_name: str = "ai_crawler",
     ):
         self._uri = uri or os.getenv("MONGO_URI", "mongodb://localhost:27017")
         self._db_name = db_name
@@ -65,10 +65,6 @@ class DBManager:
         schemas: Collection = self._db["schemas"]
         schemas.create_index([("tender_state", ASCENDING)], unique=True)
 
-        tenders: Collection = self._db["tenders"]
-        tenders.create_index([("tender_state", ASCENDING)])
-        tenders.create_index([("atm_id", ASCENDING)])
-        tenders.create_index([("closing_date", ASCENDING)])
 
         logs: Collection = self._db["scrape_logs"]
         logs.create_index([("tender_state", ASCENDING)])
