@@ -104,32 +104,32 @@ class SchemaGenerator:
 
 
 
-# # ── quick smoke-test ──────────────────────────────────────────────────────────
+# ── quick smoke-test ──────────────────────────────────────────────────────────
 
-# async def main():
-#     url = "https://www.tenders.gov.au/Atm/"
-#     tender_state = "aus_gov"
+async def main():
+    url = "https://qtenders.hpw.qld.gov.au/search?page=1"
+    tender_state = "qld"
 
-#     with SchemaGenerator() as gen:
-#         # 1. Get or generate schema
-#         schema = await gen.ensure_schema(tender_state, url)
-#         print("Schema:", json.dumps(schema, indent=2))
+    with SchemaGenerator() as gen:
+        # 1. Get or generate schema
+        schema = await gen.ensure_schema(tender_state, url)
+        print("Schema:", json.dumps(schema, indent=2))
 
-#         # 2. Use schema to scrape
-#         async with AsyncWebCrawler(config=BrowserConfig(headless=False)) as crawler:
-#             result = await crawler.arun(
-#                 url=url,
-#                 config=CrawlerRunConfig(
-#                     extraction_strategy=JsonXPathExtractionStrategy(schema=schema)
-#                 ),
-#             )
+        # 2. Use schema to scrape
+        async with AsyncWebCrawler(config=BrowserConfig(headless=False)) as crawler:
+            result = await crawler.arun(
+                url=url,
+                config=CrawlerRunConfig(
+                    extraction_strategy=JsonXPathExtractionStrategy(schema=schema)
+                ),
+            )
 
-#         tenders = json.loads(result.extracted_content or "[]")
-#         print(f"Scraped {len(tenders)} tenders")
+        tenders = json.loads(result.extracted_content or "[]")
+        print(f"Scraped {len(tenders)} tenders")
 
-#         # 3. Persist tenders
-#         gen._db.insert_tenders(tender_state, tenders)
+        # 3. Persist tenders
+        gen._db.insert_tenders(tender_state, tenders)
 
 
-# if __name__ == "__main__":
-#     asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
